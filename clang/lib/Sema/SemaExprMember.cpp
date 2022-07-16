@@ -21,16 +21,9 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
-#include "llvm/Support/Debug.h"
 
 using namespace clang;
 using namespace sema;
-
-static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
-                                   ExprResult &BaseExpr, bool &IsArrow,
-                                   SourceLocation OpLoc, CXXScopeSpec &SS,
-                                   Decl *ObjCImpDecl, bool HasTemplateArgs,
-                                   SourceLocation TemplateKWLoc);
 
 typedef llvm::SmallPtrSet<const CXXRecordDecl*, 4> BaseSet;
 
@@ -690,27 +683,10 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
   }
 
   // The record definition is complete, now look up the member.
-  auto r1 = SemaRef.LookupQualifiedName(R, DC, SS);
-  (void)r1; // for debugging
+  SemaRef.LookupQualifiedName(R, DC, SS);
 
   if (!R.empty())
     return false;
-  llvm::dbgs()
-      << "SemaExprMember: LookupMemberExprInRecord name look-up failed\n";
-
-  DeclarationName OpName = SemaRef.Context.DeclarationNames.getCXXOperatorName(OO_Period);
-  DeclarationNameInfo OpInfo(OpName, SourceLocation());
-  LookupResult opPeriod(SemaRef, OpInfo, Sema::LookupMemberName);
-  SemaRef.LookupQualifiedName(opPeriod, DC, SS);
-
-  if (!opPeriod.empty()) {
-    llvm::dbgs()
-        << "LookupMemberExprInRecord got an operator.() after NLU failure\n";
-    // opPeriod.setAmbiguousOperatorDot();
-    // R = std::move(opPeriod);
-    R.setAmbiguousOperatorDot();
-    return true;
-  }
 
   DeclarationName Typo = R.getLookupName();
   SourceLocation TypoLoc = R.getNameLoc();
@@ -733,12 +709,10 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
           bool DroppedSpecifier =
               TC.WillReplaceSpecifier() &&
               Typo.getAsString() == TC.getAsString(SemaRef.getLangOpts());
-          llvm::dbgs() << "LookupMemberInRecord 1\n";
           SemaRef.diagnoseTypo(TC, SemaRef.PDiag(diag::err_no_member_suggest)
                                        << Typo << DC << DroppedSpecifier
                                        << SS.getRange());
         } else {
-          llvm::dbgs() << "LookupMemberInRecord 2\n";
           SemaRef.Diag(TypoLoc, diag::err_no_member) << Typo << DC << BaseRange;
         }
       },
@@ -791,10 +765,8 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
     if (IsArrow) RecordTy = RecordTy->castAs<PointerType>()->getPointeeType();
     if (LookupMemberExprInRecord(
             *this, R, nullptr, RecordTy->getAs<RecordType>(), OpLoc, IsArrow,
-            SS, TemplateArgs != nullptr, TemplateKWLoc, TE)) {
-      llvm::dbgs() << "don't run me yet 2 post LookupMemberExprInRecord\n";
+            SS, TemplateArgs != nullptr, TemplateKWLoc, TE))
       return ExprError();
-    }
     if (TE)
       return TE;
 
@@ -1276,18 +1248,10 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
                                    SourceLocation TemplateKWLoc) {
   assert(BaseExpr.get() && "no base expression");
 
-  llvm::dbgs() << "initial BaseExpr:\n";
-  BaseExpr.get()->dump();
-  llvm::dbgs() << "initial BaseExpr dump done\n";
-
   // Perform default conversions.
   BaseExpr = S.PerformMemberExprBaseConversion(BaseExpr.get(), IsArrow);
   if (BaseExpr.isInvalid())
     return ExprError();
-
-  llvm::dbgs() << "defconv BaseExpr:\n";
-  BaseExpr.get()->dump();
-  llvm::dbgs() << "defconv BaseExpr dump done\n";
 
   QualType BaseType = BaseExpr.get()->getType();
   assert(!BaseType->isDependentType());
@@ -1347,65 +1311,8 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
   if (const RecordType *RTy = BaseType->getAs<RecordType>()) {
     TypoExpr *TE = nullptr;
     if (LookupMemberExprInRecord(S, R, BaseExpr.get(), RTy, OpLoc, IsArrow, SS,
-                                 HasTemplateArgs, TemplateKWLoc, TE)) {
-      llvm::dbgs() << "don't run me yet 111 post LookupMemberExprInRecord\n";
-      if (R.getResultKind() != LookupResult::LookupResultKind::Ambiguous &&
-          R.getAmbiguityKind() !=
-              LookupResult::AmbiguityKind::AmbiguousOperatorDot) {
-        return ExprError();
-      }
-      llvm::dbgs() << "name lookup failed but got operator., need to build "
-                      "nested expr\n";
-      R.clear();
-      DeclarationName OpName =
-          S.Context.DeclarationNames.getCXXOperatorName(OO_Period);
-      DeclarationNameInfo OpInfo(OpName, SourceLocation());
-      LookupResult opPeriod(S, OpInfo, Sema::LookupMemberName);
-      S.LookupQualifiedName(opPeriod, RTy->getDecl(), SS);
-      if (opPeriod.empty()) {
-        llvm::dbgs() << "weird, i had just found operator. but not now.\n";
-        return ExprError();
-      }
-
-      auto opPeriodDecl = opPeriod.getFoundDecl();
-      llvm::dbgs() << "opPeriodDecl: " << opPeriodDecl << "\n";
-      opPeriodDecl->dump();
-      llvm::dbgs() << "opPeriodDecl done\n";
-
-      CXXConversionDecl *Conv = cast<CXXConversionDecl>(opPeriodDecl);
-      llvm::dbgs() << "conv: " << Conv << "\n";
-      Conv->dump();
-      llvm::dbgs() << "Conv dump done\n";
-
-      auto operCallExpr =
-          S.BuildCXXMemberCallExpr(BaseExpr.get(), opPeriodDecl, Conv, false);
-      llvm::dbgs() << "operCallExpr: " << operCallExpr.get() << "\n";
-      operCallExpr.get()->dump();
-      llvm::dbgs() << "operCallExpr dump done\n";
-
-      //      Expr *opPerMemExpr = nullptr;
-      //      MultiExprArg opPerMemArgExprs;
-      //      auto opPerMemBuildRes = S.BuildMemberExpr(<#Expr *Base#>, <#bool
-      //      IsArrow#>, <#SourceLocation OpLoc#>, <#const CXXScopeSpec *SS#>,
-      //      <#SourceLocation TemplateKWLoc#>, <#ValueDecl *Member#>,
-      //      <#DeclAccessPair FoundDecl#>, <#bool HadMultipleCandidates#>,
-      //      <#const DeclarationNameInfo &MemberNameInfo#>, <#QualType Ty#>,
-      //      <#ExprValueKind VK#>, <#ExprObjectKind OK#>); llvm::dbgs() <<
-      //      "opPer BuildMemberExpr res isInvalid: " <<
-      //      opPerMemBuildRes.isInvalid() << " isUsable: " <<
-      //      opPerMemBuildRes.isUsable() << "\n";
-
-      //      Expr *opPerCallExpr = nullptr;
-      //      MultiExprArg opPerCallArgExprs;
-      //      auto opPerCallBuildRes =
-      //      S.BuildCallExpr(S.getScopeForContext(RTy->getDecl()),
-      //      BaseExpr.get(), SourceLocation(), opPerCallArgExprs,
-      //      SourceLocation()); llvm::dbgs() << "opPer BuildCallExpr res
-      //      isInvalid: " << opPerCallBuildRes.isInvalid() << " isUsable: " <<
-      //      opPerCallBuildRes.isUsable() << "\n";
-
-      return ExprResult(TE);
-    }
+                                 HasTemplateArgs, TemplateKWLoc, TE))
+      return ExprError();
 
     // Returning valid-but-null is how we indicate to the caller that
     // the lookup result was filled in. If typo correction was attempted and
