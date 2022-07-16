@@ -1,0 +1,16 @@
+********************
+********************
+Failed Tests (5):
+  Clang :: CXX/drs/dr2xx.cpp
+  Clang :: OpenMP/declare_mapper_messages.c
+  Clang :: Parser/recovery.c
+  Clang :: SemaCXX/member-expr.cpp
+  Clang :: SemaTemplate/dependent-names.cpp
+
+
+Testing Time: 433.93s
+  Skipped          :    31
+  Unsupported      :  1624
+  Passed           : 29311
+  Expectedly Failed:    27
+  Failed           :     5

@@ -151,7 +151,7 @@ public:
 
   SourceLocation getExprLoc() const LLVM_READONLY {
     OverloadedOperatorKind Operator = getOperator();
-    return (Operator < OO_Plus || Operator >= OO_Arrow ||
+    return (Operator < OO_Plus || Operator >= OO_Period ||
             Operator == OO_PlusPlus || Operator == OO_MinusMinus)
                ? getBeginLoc()
                : getOperatorLoc();

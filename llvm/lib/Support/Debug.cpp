@@ -35,6 +35,9 @@
 #undef isCurrentDebugType
 #undef setCurrentDebugType
 #undef setCurrentDebugTypes
+#undef isRunningUnderDebugger
+#undef debugtrap
+#undef unconditional_debugtrap
 
 using namespace llvm;
 
@@ -76,6 +79,81 @@ void setCurrentDebugTypes(const char **Types, unsigned Count) {
   for (size_t T = 0; T < Count; ++T)
     CurrentDebugType->push_back(Types[T]);
 }
+
+#ifdef __APPLE__
+#include <cassert>
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <unistd.h>
+#elif defined(__linux__)
+#include <cassert>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+bool isRunningUnderDebugger() {
+#ifdef __APPLE__
+  int junk;
+  int mib[4];
+  struct kinfo_proc info;
+  size_t size;
+
+  // Initialize the flags so that, if sysctl fails for some bizarre
+  // reason, we get a predictable result.
+
+  info.kp_proc.p_flag = 0;
+
+  // Initialize mib, which tells sysctl the info we want, in this case
+  // we're looking for information about a specific process ID.
+
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_PID;
+  mib[3] = getpid();
+
+  // Call sysctl.
+
+  size = sizeof(info);
+  junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+  assert(junk == 0);
+
+  // We're being debugged if the P_TRACED flag is set.
+
+  return ((info.kp_proc.p_flag & P_TRACED) != 0);
+#elif defined(__linux__)
+    static int status_fd = -1;
+    if (status_fd < 0) {
+        status_fd = open("/proc/self/status", O_RDONLY);
+        assert(status_fd >= 0);
+    }
+    assert(lseek(status_fd, 0, SEEK_SET) == 0);
+    char buf[1024];
+    assert(read(status_fd, buf, sizeof(buf)) > 0);
+    buf[sizeof(buf) - 1] = '\0';
+    return !strstr(buf, "\nTracerPid:\t0\n");
+#else
+#error "platform not supported"
+  return false;
+#endif
+}
+
+void unconditional_debugtrap() {
+#if __has_builtin(__builtin_trap)
+  __builtin_debugtrap();
+#else
+#error "platform not supported"
+#endif
+}
+
+void debugtrap() {
+  if (!isRunningUnderDebugger()) {
+    return;
+  }
+  __builtin_debugtrap();
+}
+
+void debugtrap_target() { return; }
+
 } // namespace llvm
 
 // All Debug.h functionality is a no-op in NDEBUG mode.

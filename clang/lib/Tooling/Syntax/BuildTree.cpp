@@ -231,6 +231,7 @@ static syntax::NodeKind getOperatorNodeKind(const CXXOperatorCallExpr &E) {
   case OO_Coawait:
   case OO_Subscript:
   case OO_Arrow:
+  case OO_Period:
     return syntax::NodeKind::UnknownExpression;
   case OO_Call:
     return syntax::NodeKind::CallExpression;

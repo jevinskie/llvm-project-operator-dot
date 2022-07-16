@@ -334,7 +334,9 @@ bool LookupResult::checkDebugAssumptions() const {
   assert(ResultKind != FoundUnresolvedValue || checkUnresolved());
   assert(ResultKind != Ambiguous || Decls.size() > 1 ||
          (Decls.size() == 1 && (Ambiguity == AmbiguousBaseSubobjects ||
-                                Ambiguity == AmbiguousBaseSubobjectTypes)));
+                                Ambiguity == AmbiguousBaseSubobjectTypes ||
+                                Ambiguity == AmbiguousOperatorDot)) ||
+         (Decls.size() == 0 && (Ambiguity == AmbiguousOperatorDot)));
   assert((Paths != nullptr) == (ResultKind == Ambiguous &&
                                 (Ambiguity == AmbiguousBaseSubobjectTypes ||
                                  Ambiguity == AmbiguousBaseSubobjects)));
@@ -2837,6 +2839,14 @@ void Sema::DiagnoseAmbiguousLookup(LookupResult &Result) {
 
   case LookupResult::AmbiguousReference: {
     Diag(NameLoc, diag::err_ambiguous_reference) << Name << LookupRange;
+
+    for (auto *D : Result)
+      Diag(D->getLocation(), diag::note_ambiguous_candidate) << D;
+    break;
+  }
+
+  case LookupResult::AmbiguousOperatorDot: {
+    Diag(NameLoc, diag::err_ambiguous_operator_dot) << Name << LookupRange;
 
     for (auto *D : Result)
       Diag(D->getLocation(), diag::note_ambiguous_candidate) << D;

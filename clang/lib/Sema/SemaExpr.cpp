@@ -8980,7 +8980,7 @@ static bool IsArithmeticBinaryExpr(Expr *E, BinaryOperatorKind *Opcode,
     // Make sure this is really a binary operator that is safe to pass into
     // BinaryOperator::getOverloadedOpcode(), e.g. it's not a subscript op.
     OverloadedOperatorKind OO = Call->getOperator();
-    if (OO < OO_Plus || OO > OO_Arrow ||
+    if (OO < OO_Plus || OO > OO_Period ||
         OO == OO_PlusPlus || OO == OO_MinusMinus)
       return false;
 
