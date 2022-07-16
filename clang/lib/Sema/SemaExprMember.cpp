@@ -688,6 +688,19 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
   if (!R.empty())
     return false;
 
+  DeclarationName OpName =
+      SemaRef.Context.DeclarationNames.getCXXOperatorName(OO_Period);
+  DeclarationNameInfo OpInfo(OpName, SourceLocation());
+  LookupResult opPeriod(SemaRef, OpInfo, Sema::LookupMemberName);
+  SemaRef.LookupQualifiedName(opPeriod, DC, SS);
+
+  if (!opPeriod.empty()) {
+    llvm::dbgs()
+        << "LookupMemberExprInRecord got an operator.() after NLU failure\n";
+    R.setAmbiguousOperatorDot();
+    return true;
+  }
+
   DeclarationName Typo = R.getLookupName();
   SourceLocation TypoLoc = R.getNameLoc();
 
