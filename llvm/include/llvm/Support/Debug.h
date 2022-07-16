@@ -65,12 +65,21 @@ void setCurrentDebugTypes(const char **Types, unsigned Count);
   do { if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(TYPE)) { X; } \
   } while (false)
 
+bool isRunningUnderDebugger();
+void debugtrap();
+void unconditional_debugtrap();
+
 #else
 #define isCurrentDebugType(X) (false)
 #define setCurrentDebugType(X)
 #define setCurrentDebugTypes(X, N)
 #define DEBUG_WITH_TYPE(TYPE, X) do { } while (false)
+#define isRunningUnderDebugger() (false)
+#define debugtrap()
+#define unconditional_debugtrap()
 #endif
+
+void debugtrap_target();
 
 /// This boolean is set to true if the '-debug' command line option
 /// is specified.  This should probably not be referenced directly, instead, use

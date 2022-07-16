@@ -9175,6 +9175,7 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
 
   case OO_Comma:
   case OO_Arrow:
+  case OO_Period:
   case OO_Coawait:
     // C++ [over.match.oper]p3:
     //   -- For the operator ',', the unary operator '&', the

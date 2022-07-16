@@ -21,9 +21,15 @@ you'll get:
 
 import lldb
 
+from rich import print as rprint
+from rich import inspect as rinspect
+
 def __lldb_init_module(debugger, internal_dict):
 	debugger.HandleCommand("type summary add -F ClangDataFormat.SourceLocation_summary clang::SourceLocation")
 	debugger.HandleCommand("type summary add -F ClangDataFormat.QualType_summary clang::QualType")
+	debugger.HandleCommand("type summary add -F ClangDataFormat.DeclarationName_summary clang::DeclarationName")
+	# debugger.HandleCommand("type summary add -F ClangDataFormat.Stmt_summary clang::Stmt")
+	debugger.HandleCommand("type summary add -F ClangDataFormat.DeclAccessPair_summary clang::DeclAccessPair")
 	debugger.HandleCommand("type summary add -F ClangDataFormat.StringRef_summary llvm::StringRef")
 
 def SourceLocation_summary(srcloc, internal_dict):
@@ -31,6 +37,15 @@ def SourceLocation_summary(srcloc, internal_dict):
 
 def QualType_summary(qualty, internal_dict):
 	return QualType(qualty).summary()
+
+def DeclarationName_summary(declaration_name, internal_dict):
+	return DeclarationName(declaration_name).summary()
+
+def Stmt_summary(stmt, internal_dict):
+	return Stmt(stmt).summary()
+
+def DeclAccessPair_summary(decl_access_pair, internal_dict):
+	return DeclAccessPair(decl_access_pair).summary()
 
 def StringRef_summary(strref, internal_dict):
 	return StringRef(strref).summary()
@@ -79,21 +94,61 @@ class QualType(object):
 			return "<NULL TYPE>"
 		return desc
 
+class DeclarationName(object):
+	def __init__(self, declaration_name):
+		self.declaration_name = declaration_name
+
+	def getAsString(self):
+		std_str = getValueFromExpression(self.declaration_name, ".getAsString()")
+		return std_str.GetSummary()
+
+	def summary(self):
+		desc = self.getAsString()
+		return desc
+
+class Stmt(object):
+	def __init__(self, stmt):
+		self.stmt = stmt
+
+	def getAsString(self):
+		std_str = getValueFromExpression(self.stmt, ".getAsString()")
+		return std_str.GetSummary()
+
+	def summary(self):
+		desc = self.getAsString()
+		return desc
+
+class DeclAccessPair(object):
+	def __init__(self, stmt):
+		self.stmt = stmt
+
+	def getAsString(self):
+		access = getValueFromExpression(self.stmt, ".getAccess()")
+		name = StringRef(getValueFromExpression(self.stmt, ".getDecl()->getName()"))
+		return f'< name: {name.getAsString()} access: {access.value} >'
+
+	def summary(self):
+		desc = self.getAsString()
+		return desc
+
 class StringRef(object):
 	def __init__(self, strref):
 		self.strref = strref
 		self.Data_value = strref.GetChildAtIndex(0)
 		self.Length = strref.GetChildAtIndex(1).GetValueAsUnsigned()
 
-	def summary(self):
+	def getAsString(self):
 		if self.Length == 0:
-			return '""'
+			return ''
 		data = self.Data_value.GetPointeeData(0, self.Length)
 		error = lldb.SBError()
 		string = data.ReadRawData(error, 0, data.GetByteSize())
 		if error.Fail():
 			return None
-		return '"%s"' % string
+		return string.decode()
+
+	def summary(self):
+		return '"%s"' % self.getAsString()
 
 
 # Key is a (function address, type name) tuple, value is the expression path for

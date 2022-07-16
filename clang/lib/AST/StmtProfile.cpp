@@ -1552,6 +1552,7 @@ static Stmt::StmtClass DecodeOperatorCall(const CXXOperatorCallExpr *S,
   case OO_Array_New:
   case OO_Array_Delete:
   case OO_Arrow:
+  case OO_Period:
   case OO_Conditional:
   case NUM_OVERLOADED_OPERATORS:
     llvm_unreachable("Invalid operator call kind");

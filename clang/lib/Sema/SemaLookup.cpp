@@ -334,7 +334,9 @@ bool LookupResult::sanity() const {
   assert(ResultKind != FoundUnresolvedValue || sanityCheckUnresolved());
   assert(ResultKind != Ambiguous || Decls.size() > 1 ||
          (Decls.size() == 1 && (Ambiguity == AmbiguousBaseSubobjects ||
-                                Ambiguity == AmbiguousBaseSubobjectTypes)));
+                                Ambiguity == AmbiguousBaseSubobjectTypes ||
+                                Ambiguity == AmbiguousOperatorDot)) ||
+         (Decls.size() == 0 && (Ambiguity == AmbiguousOperatorDot)));
   assert((Paths != nullptr) == (ResultKind == Ambiguous &&
                                 (Ambiguity == AmbiguousBaseSubobjectTypes ||
                                  Ambiguity == AmbiguousBaseSubobjects)));

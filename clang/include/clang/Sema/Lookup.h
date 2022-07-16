@@ -132,7 +132,10 @@ public:
     ///             // different namespace
     /// }
     /// @endcode
-    AmbiguousTagHiding
+    AmbiguousTagHiding,
+
+    /// Name not found but C++ operator.() found
+    AmbiguousOperatorDot,
   };
 
   /// A little identifier for flagging temporary lookup results.
@@ -515,8 +518,10 @@ public:
   /// This is intended for users who have examined the result kind
   /// and are certain that there is only one result.
   NamedDecl *getFoundDecl() const {
-    assert(getResultKind() == Found
-           && "getFoundDecl called on non-unique result");
+    assert((getResultKind() == Found ||
+            (getResultKind() == Ambiguous &&
+             getAmbiguityKind() == AmbiguousOperatorDot)) &&
+           "getFoundDecl called on non-unique result");
     return (*begin())->getUnderlyingDecl();
   }
 
@@ -549,6 +554,10 @@ public:
   void setAmbiguousQualifiedTagHiding() {
     setAmbiguous(AmbiguousTagHiding);
   }
+
+  /// Make these results show that the name was not found but operator.() was
+  /// found.
+  void setAmbiguousOperatorDot() { setAmbiguous(AmbiguousOperatorDot); }
 
   /// Clears out any current state.
   LLVM_ATTRIBUTE_REINITIALIZES void clear() {

@@ -1291,6 +1291,8 @@ void MicrosoftCXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO,
   //                     ?B # conversion
   // <operator-name> ::= ?C # ->
   case OO_Arrow: Out << "?C"; break;
+  // <operator-name> ::= ?_PE # ->
+  case OO_Period: Out << "?_PE"; break;
   // <operator-name> ::= ?D # *
   case OO_Star: Out << "?D"; break;
   // <operator-name> ::= ?E # ++
