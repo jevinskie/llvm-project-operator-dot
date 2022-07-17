@@ -695,8 +695,7 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
   SemaRef.LookupQualifiedName(opPeriod, DC, SS);
 
   if (!opPeriod.empty()) {
-    llvm::dbgs()
-        << "LookupMemberExprInRecord got an operator.() after NLU failure\n";
+    llvm::dbgs() << "LookupMemberExprInRecord got an operator.() after NLU failure\n";
     R.setAmbiguousOperatorDot();
     return true;
   }
@@ -1323,9 +1322,15 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
   // Handle field access to simple records.
   if (const RecordType *RTy = BaseType->getAs<RecordType>()) {
     TypoExpr *TE = nullptr;
-    if (LookupMemberExprInRecord(S, R, BaseExpr.get(), RTy, OpLoc, IsArrow, SS,
-                                 HasTemplateArgs, TemplateKWLoc, TE))
+    if (LookupMemberExprInRecord(S, R, BaseExpr.get(), RTy, OpLoc, IsArrow, SS, HasTemplateArgs,
+                                 TemplateKWLoc, TE)) {
+      if (R.getResultKind() != LookupResult::LookupResultKind::Ambiguous ||
+          R.getAmbiguityKind() != LookupResult::AmbiguityKind::AmbiguousOperatorDot) {
+        return ExprError();
+      }
+      llvm::dbgs() << "name lookup failed but got operator., need to build nested expr\n";
       return ExprError();
+    }
 
     // Returning valid-but-null is how we indicate to the caller that
     // the lookup result was filled in. If typo correction was attempted and
