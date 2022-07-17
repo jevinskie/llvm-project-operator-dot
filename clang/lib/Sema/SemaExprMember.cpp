@@ -1364,22 +1364,23 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
       RTy->desugar()->dump();
       llvm::dbgs() << "RTy->desugar() done\n";
 
-      // Create the reference to operator.
+      // Create the reference to operator dot
       ExprResult OpPeriodRef = S.BuildMemberReferenceExpr(
           BaseExpr.get(), RTy->desugar(), OpLoc, IsArrow, SS, TemplateKWLoc,
           /*FirstQualifierInScope=*/nullptr, OpPeriod,
           /*TemplateArgs=*/nullptr, /*S*/ nullptr,
           /*SuppressQualifierCheck=*/true);
-      if (OpPeriodRef.isInvalid()) {
-        llvm::dbgs() << "OpPeriodRef is invalid\n";
-        return ExprError();
-      }
 
       llvm::dbgs() << "OpPeriodRef:\n";
       OpPeriodRef.get()->dump();
       llvm::dbgs() << "OpPeriodRef end\n";
 
-      // Build the call to the assignment operator.
+      if (OpPeriodRef.isInvalid()) {
+        llvm::dbgs() << "OpPeriodRef is invalid\n";
+        return ExprError();
+      }
+
+      // Build the call to the dot operator.
 
       ExprResult OpPeriodCall = S.BuildCallToMemberFunction(
           /*Scope=*/nullptr, OpPeriodRef.getAs<Expr>(), OpLoc, {}, OpLoc);
@@ -1388,11 +1389,43 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
         return ExprError();
       }
 
+      llvm::dbgs() << "R:\n";
+      R.dump();
+      llvm::dbgs() << "R end\n";
+
+      llvm::dbgs() << "BaseExpr:\n";
+      BaseExpr.get()->dump();
+      llvm::dbgs() << "BaseExpr end\n";
+
       llvm::dbgs() << "OpPeriodCall:\n";
       OpPeriodCall.get()->dump();
       llvm::dbgs() << "OpPeriodCall end\n";
 
-      return ExprResult(OpPeriodCall);
+      // R.clear();
+
+      auto OpPeriodSubExpr = LookupMemberExpr(S, R, OpPeriodCall, IsArrow, OpLoc, SS, ObjCImpDecl,
+                                              HasTemplateArgs, TemplateKWLoc);
+
+      llvm::dbgs() << "R:\n";
+      R.dump();
+      llvm::dbgs() << "R end\n";
+
+      llvm::debugtrap();
+
+      if (OpPeriodSubExpr.isInvalid()) {
+        llvm::dbgs() << "OpPeriodCall is invalid\n";
+        return ExprError();
+      }
+
+      llvm::dbgs() << "OpPeriodSubExpr:\n";
+      OpPeriodSubExpr.get()->dump();
+      llvm::dbgs() << "OpPeriodSubExpr end\n";
+      BaseExpr = OpPeriodCall;
+
+      // return ExprError();
+      // return ExprResult(TE);
+      // R.clear();
+      return ExprResult(TE);
     }
 
     // Returning valid-but-null is how we indicate to the caller that
