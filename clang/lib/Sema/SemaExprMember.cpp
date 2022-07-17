@@ -688,13 +688,12 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
   if (!R.empty())
     return false;
 
-  DeclarationName OpName =
-      SemaRef.Context.DeclarationNames.getCXXOperatorName(OO_Period);
-  DeclarationNameInfo OpInfo(OpName, SourceLocation());
-  LookupResult opPeriod(SemaRef, OpInfo, Sema::LookupMemberName);
-  SemaRef.LookupQualifiedName(opPeriod, DC, SS);
+  DeclarationName PeriodOpName = SemaRef.Context.DeclarationNames.getCXXOperatorName(OO_Period);
+  DeclarationNameInfo PeriodOpInfo(PeriodOpName, SourceLocation());
+  LookupResult OpPeriod(SemaRef, PeriodOpInfo, Sema::LookupMemberName);
+  SemaRef.LookupQualifiedName(OpPeriod, DC, SS);
 
-  if (!opPeriod.empty()) {
+  if (!OpPeriod.empty()) {
     llvm::dbgs() << "LookupMemberExprInRecord got an operator.() after NLU failure\n";
     R.setAmbiguousOperatorDot();
     return true;
@@ -1329,7 +1328,71 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
         return ExprError();
       }
       llvm::dbgs() << "name lookup failed but got operator., need to build nested expr\n";
-      return ExprError();
+
+      // R.clear();
+      DeclarationName PeriodOpName = S.Context.DeclarationNames.getCXXOperatorName(OO_Period);
+      DeclarationNameInfo PeriodOpInfo(PeriodOpName, SourceLocation());
+      LookupResult OpPeriod(S, PeriodOpInfo, Sema::LookupMemberName);
+      S.LookupQualifiedName(OpPeriod, RTy->getDecl(), SS);
+      if (OpPeriod.empty()) {
+        llvm::dbgs() << "weird, i had just found operator. but not now.\n";
+        return ExprError();
+      }
+
+      llvm::dbgs() << "BaseExpr:\n";
+      BaseExpr.get()->dump();
+      llvm::dbgs() << "BaseExpr done\n";
+
+      llvm::dbgs() << "OpPeriod:\n";
+      OpPeriod.dump();
+      llvm::dbgs() << "OpPeriod done\n";
+
+      auto *OpPeriodDecl = OpPeriod.getFoundDecl();
+      llvm::dbgs() << "OpPeriodDecl: " << OpPeriodDecl << "\n";
+      OpPeriodDecl->dump();
+      llvm::dbgs() << "OpPeriodDecl done\n";
+
+      llvm::dbgs() << "BaseType:\n";
+      BaseType->dump();
+      llvm::dbgs() << "BaseType done\n";
+
+      llvm::dbgs() << "RTy:\n";
+      RTy->dump();
+      llvm::dbgs() << "RTy done\n";
+
+      llvm::dbgs() << "RTy->desugar():\n";
+      RTy->desugar()->dump();
+      llvm::dbgs() << "RTy->desugar() done\n";
+
+      // Create the reference to operator.
+      ExprResult OpPeriodRef = S.BuildMemberReferenceExpr(
+          BaseExpr.get(), RTy->desugar(), OpLoc, IsArrow, SS, TemplateKWLoc,
+          /*FirstQualifierInScope=*/nullptr, OpPeriod,
+          /*TemplateArgs=*/nullptr, /*S*/ nullptr,
+          /*SuppressQualifierCheck=*/true);
+      if (OpPeriodRef.isInvalid()) {
+        llvm::dbgs() << "OpPeriodRef is invalid\n";
+        return ExprError();
+      }
+
+      llvm::dbgs() << "OpPeriodRef:\n";
+      OpPeriodRef.get()->dump();
+      llvm::dbgs() << "OpPeriodRef end\n";
+
+      // Build the call to the assignment operator.
+
+      ExprResult OpPeriodCall = S.BuildCallToMemberFunction(
+          /*Scope=*/nullptr, OpPeriodRef.getAs<Expr>(), OpLoc, {}, OpLoc);
+      if (OpPeriodCall.isInvalid()) {
+        llvm::dbgs() << "OpPeriodCall is invalid\n";
+        return ExprError();
+      }
+
+      llvm::dbgs() << "OpPeriodCall:\n";
+      OpPeriodCall.get()->dump();
+      llvm::dbgs() << "OpPeriodCall end\n";
+
+      return ExprResult(OpPeriodCall);
     }
 
     // Returning valid-but-null is how we indicate to the caller that
